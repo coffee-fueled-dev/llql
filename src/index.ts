@@ -59,8 +59,8 @@ const formatQueryAssistantTool = {
   ),
 };
 
-const schemaTypes = commonTools.EXTRACT_NODE_OF_KIND.method({
-  kind: DefinitionKind.ObjectTypeDefinition,
+const schemaTypes = commonTools["EXTRACT_NODE_OF_KIND"].method({
+  kind: DefinitionKind["ObjectTypeDefinition"],
 });
 
 const allTools = {
@@ -68,6 +68,9 @@ const allTools = {
   ...routerAssistantTool,
   ...formatQueryAssistantTool,
 };
+
+console.log("Setting things up...");
+
 registry.register(
   routerAssistantToolName,
   await Assistant.create(
@@ -75,6 +78,10 @@ registry.register(
     allTools
   )
 );
+
+await registry
+  .get(routerAssistantToolName)
+  ?.message("What tools can you use to get relevant data for me?");
 
 registry.register(
   formatQueryAssistantToolName,
@@ -86,9 +93,11 @@ registry.register(
 
 const promptAgain = async (response: string) => {
   const res = await registry.get(routerAssistantToolName)?.message(response);
-  const responseContent = res?.[0].content[0];
-  if (responseContent?.type === "text") {
-    console.log(responseContent.text.value);
+  const responseContent = res?.flatMap(({ content }) =>
+    content.map((c) => c.type === "text" && c.text.value).filter(Boolean)
+  );
+  if (responseContent) {
+    console.log(responseContent[0]);
   } else console.log("Failed to get a response...");
 
   cli.prompt("", promptAgain);

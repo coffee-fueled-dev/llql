@@ -100,9 +100,7 @@ export const getAssistantResponse = async ({
     const toolOutputs = [];
     for (const call of toolCalls) {
       console.log(
-        `\nTool call: ${call.function.name}\nArguments: ${JSON.parse(
-          call.function.arguments
-        )}`
+        `\nTool call: ${call.function.name}\nArguments: ${call.function.arguments}`
       );
       try {
         if (!tools)
@@ -113,9 +111,12 @@ export const getAssistantResponse = async ({
           throw new Error(`Unrecognized tool call: ${call.function.name}`);
         const knownTool = call.function.name as keyof typeof tools;
 
-        const output = await Promise.resolve(
-          tools[knownTool].method(JSON.parse(call.function.arguments))
+        const output = await tools[knownTool].method(
+          JSON.parse(call.function.arguments)
         );
+
+        console.log(output);
+
         toolOutputs.push({ tool_call_id: call.id, output });
       } catch (error) {
         if (!(error instanceof Error)) return;

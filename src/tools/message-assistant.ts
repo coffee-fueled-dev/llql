@@ -17,14 +17,14 @@ export const messageAssistantTool = <TName extends string>(
   { definition, getConfig }: MessageAssistantToolConfig<TName>
 ) => ({
   config: toolConfig({ toolName, definition }),
-  method: ({ message }: { message: string; assistantName: TName }) => {
+  method: ({ content }: { content: string }) => {
     const config = getConfig(toolName);
     if (!config) return;
     if (config.assistant === undefined) return;
     if (config.thread === undefined) return;
     getAssistantResponse({
       ...config,
-      content: message,
+      content,
     } as GetAssistantResponseProps);
   },
 });

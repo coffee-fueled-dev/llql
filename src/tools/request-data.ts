@@ -10,7 +10,7 @@ export const requestDataTool = <TName extends string>(toolName: TName) => ({
     argumentsJSON: string;
   }) => {
     console.log("____QUERY STRING____\n" + queryString);
-    console.log("____ARGUMENTS JSON____" + argumentsJSON);
+    console.log("\n____ARGUMENTS JSON____\n" + argumentsJSON);
 
     throw new Error("Exiting early from the request data tool");
   },
