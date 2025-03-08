@@ -24,4 +24,5 @@ export const env = envar([
     },
   ],
   ["OPENAI_API_KEY", { required: true }],
+  ["OPENAI_VECTOR_STORE_ID"],
 ] as const);

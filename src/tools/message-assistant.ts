@@ -1,31 +1,43 @@
 import type OpenAI from "openai";
-import {
-  getAssistantResponse,
-  type GetAssistantResponseProps,
-  type AssistantAsToolDefinition,
-} from "../assistants";
+import { type AssistantAsToolDefinition, Assistant } from "../assistants";
+import type { ToolRegistry } from ".";
+import type { AssistantRegistry } from "../assistants/registry";
 
-interface MessageAssistantToolConfig<TName extends string> {
+/**
+ * buildMessageTool creates a message assistant tool registry entry.
+ * It calls the provided config function with a tool name and returns a tuple:
+ *   [toolName, ToolRegistry]
+ */
+export function buildMessageTool(
+  configFn: (name: string) => any,
+  toolName: string,
+  registry: AssistantRegistry
+): [string, ToolRegistry] {
+  const { name, ...definition } = configFn(toolName);
+  return [
+    name,
+    {
+      [name]: messageAssistantTool(name, {
+        getAssistant: (assistantName: string) => registry.get(assistantName),
+        definition,
+      }),
+    },
+  ];
+}
+export interface MessageAssistantToolConfig<TName extends string> {
   definition: Omit<AssistantAsToolDefinition<TName>, "name">;
-  getConfig: (
-    assistantName: TName
-  ) => Partial<GetAssistantResponseProps> | undefined;
+  getAssistant: (assistantName: TName) => Assistant | undefined;
 }
 
 export const messageAssistantTool = <TName extends string>(
   toolName: TName,
-  { definition, getConfig }: MessageAssistantToolConfig<TName>
+  { definition, getAssistant }: MessageAssistantToolConfig<TName>
 ) => ({
   config: toolConfig({ toolName, definition }),
-  method: ({ content }: { content: string }) => {
-    const config = getConfig(toolName);
-    if (!config) return;
-    if (config.assistant === undefined) return;
-    if (config.thread === undefined) return;
-    getAssistantResponse({
-      ...config,
-      content,
-    } as GetAssistantResponseProps);
+  method: async ({ content }: { content: string }): Promise<string> => {
+    const assistant = getAssistant(toolName);
+    if (!assistant) return "";
+    return (await assistant.message(content)) ?? "";
   },
 });
 

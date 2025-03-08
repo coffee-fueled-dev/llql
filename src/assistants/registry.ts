@@ -1,4 +1,5 @@
-import type { Assistant } from ".";
+import { Assistant, type AssistantCreateParams, type ProgressHandler } from ".";
+import type { ToolRegistry } from "../tools";
 
 export class AssistantRegistry {
   private registry: Map<string, Assistant>;
@@ -12,8 +13,8 @@ export class AssistantRegistry {
    * @param key A unique string key for the assistant.
    * @param props The assistant properties (excluding "content").
    */
-  public register(key: string, props: Assistant): void {
-    this.registry.set(key, props);
+  public register(key: string, assistant: Assistant): void {
+    this.registry.set(key, assistant);
   }
 
   /**
@@ -24,4 +25,23 @@ export class AssistantRegistry {
   public get(key: string): Assistant | undefined {
     return this.registry.get(key);
   }
+}
+
+/**
+ * registerAssistant creates an assistant using the provided parameters,
+ * then registers it under the given name in the registry.
+ */
+export async function registerAssistant(
+  registry: AssistantRegistry,
+  name: string,
+  { tools, openaiParams }: AssistantCreateParams<ToolRegistry | undefined>,
+  onProgress?: ProgressHandler
+) {
+  const assistant = await Assistant.create({
+    assistantParams: openaiParams,
+    name,
+    ...(tools ? { tools } : {}),
+    ...(onProgress ? { onProgress } : {}),
+  });
+  registry.register(name, assistant);
 }

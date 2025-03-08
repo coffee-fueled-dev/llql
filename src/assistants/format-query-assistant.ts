@@ -1,23 +1,32 @@
 import type OpenAI from "openai";
-import type { AssistantAsToolDefinition } from ".";
-import type { Tool } from "../tools";
+import type { AssistantAsToolDefinition, AssistantCreateParams } from ".";
+import type { ToolRegistry } from "../tools";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod.mjs";
 
-export const formatQueryAssistantCreateParams = (
-  schemaQueries: string,
-  tools: Record<string, Tool>
-): OpenAI.Beta.Assistants.AssistantCreateParams => ({
-  instructions:
-    "You are a helpful assistant that writes GraphQL queries that retrieve data to answer critical business questions. " +
-    "Respond with a JSON object that adheres to the provided schema." +
-    "Refer to the provided GraphQL queries and use the available tools to get more context if needed." +
-    "Available GraphQL Queries:\n" +
-    schemaQueries,
-  model: "o3-mini",
-  reasoning_effort: "low",
-  response_format: zodResponseFormat(GraphQLQuery, "graphql_schema"),
-  tools: Object.values(tools).map((t) => t.config),
+export const formatQueryAssistantCreateParams = <T extends ToolRegistry>(
+  tools: T,
+  SDLContext: string,
+  vectorStoreId?: string
+): AssistantCreateParams<T> => ({
+  tools,
+  openaiParams: {
+    instructions:
+      "You are a BI assistant that writes queries that could be used to answer critical business questions. " +
+      "You may use any query depth necessary to write the query. " +
+      "Double check your graphql query against the schema, using tools to extract context as necessary. " +
+      "Assume the GraphQL schema cannot be modified. " +
+      "When you have successfully validated the query, respond to the user with a JSON object that adheres to the provided schema." +
+      "Here's some information about the GraphQL schema:\n" +
+      SDLContext,
+    model: "o3-mini",
+    reasoning_effort: "medium",
+    response_format: zodResponseFormat(GraphQLQuery, "graphql_schema"),
+    tools: Object.values(tools).map((t) => t.config),
+    tool_resources: vectorStoreId
+      ? { file_search: { vector_store_ids: [vectorStoreId] } }
+      : undefined,
+  },
 });
 
 export const formatQueryAssistantToolConfig = <TName extends string>(
@@ -31,11 +40,11 @@ export const formatQueryAssistantToolConfig = <TName extends string>(
     "Any relevant document parts or other context that would be useful writing a graphql request to answer the user's question.",
 });
 
-const GraphQLQueryLayer = z.union([
-  z.record(z.string()),
-  z.array(z.record(z.string())),
-  z.string(),
-]);
+// const GraphQLArgumentLayer = z.union([
+//   z.record(z.string()),
+//   z.array(z.record(z.string())),
+//   z.string(),
+// ]);
 
 const GraphQLQuery = z.object({
   query: z
@@ -43,9 +52,9 @@ const GraphQLQuery = z.object({
     .describe(
       "The GraphQL query string, which may add arguments as graphql variables."
     ),
-  variables: z
-    .record(GraphQLQueryLayer)
-    .describe(
-      "An object of arguments, including where clauses, sorts and other graphql variables."
-    ),
+  // variables: z
+  //   .record(GraphQLArgumentLayer)
+  //   .describe(
+  //     "An object of arguments, including where clauses, sorts and other graphql variables."
+  //   ),
 });

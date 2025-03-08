@@ -2,15 +2,8 @@ import type OpenAI from "openai";
 
 export const requestDataTool = <TName extends string>(toolName: TName) => ({
   config: toolConfig(toolName),
-  method: ({
-    queryString,
-    argumentsJSON,
-  }: {
-    queryString: string;
-    argumentsJSON: string;
-  }) => {
+  method: async ({ queryString }: { queryString: string }): Promise<string> => {
     console.log("____QUERY STRING____\n" + queryString);
-    console.log("\n____ARGUMENTS JSON____\n" + argumentsJSON);
 
     throw new Error("Exiting early from the request data tool");
   },
@@ -32,13 +25,8 @@ const toolConfig = <TName extends string>(
           type: "string",
           description: "A GraphQL operation string to run.",
         },
-        argumentsJSON: {
-          type: "string",
-          description:
-            "A JSON string containing all arguments and variables required to execute the query.",
-        },
       },
-      required: ["content"],
+      required: ["queryString"],
     },
   },
 });

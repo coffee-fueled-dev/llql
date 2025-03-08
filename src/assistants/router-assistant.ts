@@ -1,30 +1,30 @@
-import type OpenAI from "openai";
-import type { AssistantAsToolDefinition } from ".";
-import type { Tool } from "../tools";
+import type { ToolRegistry } from "../tools";
+import type { AssistantCreateParams } from ".";
 
-export const routerAssistantCreateParams = (
-  schema: string,
-  tools: Record<string, Tool>
-): OpenAI.Beta.Assistants.AssistantCreateParams => ({
-  instructions:
-    "You are a BI assistant that answers critical business questions by retreiving data from a GraphQL API. " +
-    "You may use any query depth necessary to gather the insights. " +
-    "Use all tools available to you to return insightful and accurate data to the user. " +
-    "Double check your graphql statements against the schema, using tools to extract node fields as necessary. " +
-    "The user may use colloquial terms for API items. Do your best to interpret the user's request. " +
-    "Types in schema:\n" +
-    schema,
-  model: "o3-mini",
-  reasoning_effort: "low",
-  tools: Object.values(tools).map((t) => t.config),
-});
-
-export const routerAssistantToolConfig = <TName extends string>(
-  name: TName
-): AssistantAsToolDefinition<TName> => ({
-  name,
-  description:
-    "Recursively prompt yourself to think through the topic at hand. " +
-    "Provide a message to ask yourself.",
-  messageDescription: "A clarifying message to ask yourself.",
+export const routerAssistantCreateParams = <T extends ToolRegistry>(
+  tools: T,
+  SDLContext: string,
+  vectorStoreId?: string
+): AssistantCreateParams<T> => ({
+  tools,
+  openaiParams: {
+    instructions:
+      "You are the leader of a team of BI assistants. " +
+      "Users ask you colloquial questions about their business data, and your job is to use your tools and assistants to find the insight they're looking for. " +
+      "Use a multi-step approach to fully answer the user's question with relevant data. " +
+      "When a user asks a question about their data, you should use your schema interpretation tool to determine the best way to answer the user's question using the available queries. " +
+      "Assume the GraphQL schema cannot be modified. " +
+      "Use query patterns of arbitrary depth. " +
+      "Interpret the user's question using your available tools and best assumptions without asking them for additional input. " +
+      "After you understand how to answer the user's question, delegate to the query writer to format and validate the query. " +
+      "Only after ensuring the query is valid, request data from the API and interpret the results with your thought partner before answering the user. " +
+      "You can repeat the process for multiple queries if necessary. " +
+      "Here's some information about the GraphQL schema:\n" +
+      SDLContext,
+    model: "gpt-4-turbo",
+    tools: Object.values(tools).map((t) => t.config),
+    tool_resources: vectorStoreId
+      ? { file_search: { vector_store_ids: [vectorStoreId] } }
+      : undefined,
+  },
 });

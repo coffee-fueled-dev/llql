@@ -10,7 +10,7 @@ const patterns = {
   production: createDebugPatterns(ns, [env[3]] as const),
 };
 
-const DEBUG = patterns[environmentVariables.NODE_ENV];
+const DEBUG = patterns[environmentVariables.NODE_ENV || "development"];
 
 export const sayHello = () => debug.enable(DEBUG);
 export const hello = helloInnit(ns, env);

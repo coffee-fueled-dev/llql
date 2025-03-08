@@ -4,16 +4,41 @@ import {
   visit,
   type DefinitionNode,
   type DocumentNode,
+  buildClientSchema,
+  parse,
+  printSchema,
+  type IntrospectionQuery,
 } from "graphql";
 import { withInitializer } from ".";
 import type OpenAI from "openai";
 
-export const extractNodeOfKindTool = (
-  toolName: string,
-  document: DocumentNode
-) => ({
+export async function buildSDLContext(
+  introspection: IntrospectionQuery,
+  businessContext: string
+) {
+  // Build the GraphQL schema and parse the SDL.
+  const schema = buildClientSchema(introspection);
+  const sdl = printSchema(schema);
+  const dn = parse(sdl);
+
+  // Retrieve the Query definitions from the schema.
+  const sdlQueries = await printNodesOfKind(dn, {
+    kind: DefinitionKind["ObjectTypeDefinition"],
+    name: "Query",
+  });
+
+  const sdlContext =
+    "\nBusiness Context:\n" +
+    businessContext +
+    "\nGraphQL Queries:\n" +
+    sdlQueries;
+
+  return { sdlContext, documentNode: dn, schema };
+}
+
+export const astTraversalTool = (toolName: string, document: DocumentNode) => ({
   config: toolConfig(toolName),
-  method: withInitializer(document, method),
+  method: withInitializer(document, printNodesOfKind),
 });
 
 export const DefinitionKind = {
@@ -28,7 +53,7 @@ export const DefinitionKind = {
   InputObjectTypeDefinition: Kind.INPUT_OBJECT_TYPE_DEFINITION,
 } as const;
 
-const method = (
+export const printNodesOfKind = async (
   document: DocumentNode,
   {
     kind,
@@ -37,7 +62,7 @@ const method = (
     kind: (typeof DefinitionKind)[keyof typeof DefinitionKind];
     name?: string;
   }
-) => {
+): Promise<string> => {
   const entries: DefinitionNode[] = [];
   visit(document, {
     [kind](node: DefinitionNode) {
@@ -55,7 +80,8 @@ const toolConfig = (
   function: {
     name: toolName,
     description:
-      "Extract an SDL snippet for a given type from the GraphQL schema. " +
+      "Traverse the GraphQL AST for matching node kinds by typename and extract relevant SDL snippets." +
+      "The snippets will include the complete graphql type definition for a matched GraphQL entity " +
       "Provide the desired kind and optional name descriminator to retrieve matching GraphQL entities.",
     parameters: {
       type: "object",
