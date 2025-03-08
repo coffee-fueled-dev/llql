@@ -1,30 +1,13 @@
-import {
-  getVariableValues,
-  GraphQLError,
-  parse,
-  validate,
-  type GraphQLSchema,
-} from "graphql";
-import type OpenAI from "openai";
+import { GraphQLError, parse, validate, type GraphQLSchema } from "graphql";
+import { createToolConfig, type Tool } from ".";
 
 export const queryValidationTool = <TName extends string>(
   toolName: TName,
   schema: GraphQLSchema
-) => ({
-  config: toolConfig(toolName),
-  method: async ({ queryString }: { queryString: string }) =>
-    validateGraphQLQueryAndVariables({ schema, queryString }),
-});
-
-const toolConfig = <TName extends string>(
-  toolName: TName
-): OpenAI.Beta.Assistants.AssistantTool => ({
-  type: "function",
-  function: {
-    name: toolName,
+): Tool<[{ queryString: string }]> => {
+  const config = createToolConfig(toolName, {
     description:
-      "Send a GraphQL query to check if it's valid. " +
-      "Returns a 'valid' flag and any errors if valid is false. ",
+      "Send a GraphQL query to check if it's valid. Returns a 'valid' flag and any errors if valid is false.",
     parameters: {
       type: "object",
       properties: {
@@ -35,15 +18,24 @@ const toolConfig = <TName extends string>(
       },
       required: ["queryString"],
     },
-  },
-});
+  });
+
+  const method = async ({
+    queryString,
+  }: {
+    queryString: string;
+  }): Promise<string> => {
+    return validateGraphQLQueryAndVariables({ schema, queryString });
+  };
+
+  return { config, method };
+};
 
 interface ValidationResponse {
   valid: boolean;
   errors: string[];
 }
 
-// Function to validate both the query and variable values.
 function validateGraphQLQueryAndVariables({
   schema,
   queryString,
@@ -68,28 +60,6 @@ function validateGraphQLQueryAndVariables({
         errors: errors.map(({ message }) => message),
       };
     }
-
-    // Find the operation definition that contains variable definitions.
-    // const operationDefinition = ast.definitions.find(
-    //   (def) => def.kind === "OperationDefinition"
-    // );
-
-    // if (
-    //   operationDefinition &&
-    //   "variableDefinitions" in operationDefinition &&
-    //   operationDefinition.variableDefinitions
-    // ) {
-    //   // Validate the provided variable values against the variable definitions.
-    //   const variableErrors = getVariableValues(
-    //     schema,
-    //     operationDefinition.variableDefinitions,
-    //     JSON.parse(argumentsJSON)
-    //   );
-    //   validationResponse = {
-    //     valid: false,
-    //     errors: variableErrors.errors || [],
-    //   };
-    // }
 
     return JSON.stringify(validationResponse);
   } catch (error) {

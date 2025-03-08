@@ -4,6 +4,7 @@
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/lodash.merge": "^4.6.9",
     "chalk": "^5.4.1"
   },
   "peerDependencies": {
@@ -12,6 +13,7 @@
   "dependencies": {
     "graphql": "^16.10.0",
     "graphql-tools": "^9.0.16",
+    "lodash.merge": "^4.6.2",
     "openai": "^4.86.2",
     "zod": "^3.24.2"
   }

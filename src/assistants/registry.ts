@@ -34,11 +34,16 @@ export class AssistantRegistry {
 export async function registerAssistant(
   registry: AssistantRegistry,
   name: string,
-  { tools, openaiParams }: AssistantCreateParams<ToolRegistry | undefined>,
+  {
+    tools,
+    assistantCreateOrRetrieveParams,
+    threadCreateOrRetrieveParams,
+  }: AssistantCreateParams<ToolRegistry | undefined>,
   onProgress?: ProgressHandler
 ) {
   const assistant = await Assistant.create({
-    assistantParams: openaiParams,
+    assistantParams: assistantCreateOrRetrieveParams,
+    threadParams: threadCreateOrRetrieveParams,
     name,
     ...(tools ? { tools } : {}),
     ...(onProgress ? { onProgress } : {}),

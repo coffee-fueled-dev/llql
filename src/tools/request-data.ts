@@ -1,22 +1,11 @@
-import type OpenAI from "openai";
+import { createToolConfig, type Tool } from ".";
 
-export const requestDataTool = <TName extends string>(toolName: TName) => ({
-  config: toolConfig(toolName),
-  method: async ({ queryString }: { queryString: string }): Promise<string> => {
-    console.log("____QUERY STRING____\n" + queryString);
-
-    throw new Error("Exiting early from the request data tool");
-  },
-});
-
-const toolConfig = <TName extends string>(
+export const requestDataTool = <TName extends string>(
   toolName: TName
-): OpenAI.Beta.Assistants.AssistantTool => ({
-  type: "function",
-  function: {
-    name: toolName,
+): Tool<[{ queryString: string }]> => {
+  const config = createToolConfig(toolName, {
     description:
-      "Send a graphql query to a pre-determined API endpoint to get live data. " +
+      "Send a GraphQL query to a pre-determined API endpoint to get live data. " +
       "You can be sure routing is properly configured, so when you have a properly written query, it will work as expected.",
     parameters: {
       type: "object",
@@ -28,5 +17,16 @@ const toolConfig = <TName extends string>(
       },
       required: ["queryString"],
     },
-  },
-});
+  });
+
+  const method = async ({
+    queryString,
+  }: {
+    queryString: string;
+  }): Promise<string> => {
+    console.log("____QUERY STRING____\n" + queryString);
+    throw new Error("Exiting early from the request data tool");
+  };
+
+  return { config, method };
+};

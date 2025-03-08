@@ -1,13 +1,18 @@
 import type OpenAI from "openai";
 import type { ToolRegistry } from "../tools";
-import { openai } from "../lib/openai";
-import type { RequestOptions } from "openai/core.mjs";
-import type { Run } from "openai/resources/beta/threads/index.mjs";
+import {
+  openai,
+  createOrRetrieveAssistant,
+  createOrRetrieveThread,
+  type AssistantCreateOrRetrieveParams,
+  type ThreadCreateOrRetrieveParams,
+} from "../lib/openai";
 
 export interface AssistantCreateParams<
   T extends ToolRegistry | undefined = undefined
 > {
-  openaiParams: OpenAI.Beta.Assistants.AssistantCreateParams;
+  assistantCreateOrRetrieveParams: AssistantCreateOrRetrieveParams;
+  threadCreateOrRetrieveParams: ThreadCreateOrRetrieveParams;
   tools?: T;
 }
 
@@ -45,22 +50,24 @@ export class Assistant<T extends ToolRegistry = ToolRegistry> {
    */
   static async create<T extends ToolRegistry>({
     assistantParams,
+    threadParams,
     tools,
     name,
     requestOptions,
     onProgress,
   }: {
-    assistantParams: OpenAI.Beta.Assistants.AssistantCreateParams;
+    assistantParams: AssistantCreateOrRetrieveParams;
+    threadParams: ThreadCreateOrRetrieveParams;
     tools?: T;
     name: string;
-    requestOptions?: RequestOptions;
+    requestOptions?: OpenAI.RequestOptions;
     onProgress?: ProgressHandler;
   }): Promise<Assistant<T>> {
-    const assistant = await openai.beta.assistants.create(
+    const assistant = await createOrRetrieveAssistant(
       assistantParams,
       requestOptions
     );
-    const thread = await openai.beta.threads.create();
+    const thread = await createOrRetrieveThread(threadParams, requestOptions);
     return new Assistant<T>(assistant, thread, name, tools, onProgress);
   }
 
@@ -112,9 +119,9 @@ export class Assistant<T extends ToolRegistry = ToolRegistry> {
    * Private helper to resolve tool calls recursively.
    */
   private async resolveToolCalls(
-    run: Run,
+    run: OpenAI.Beta.Threads.Run,
     toolCalls: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[]
-  ): Promise<Run> {
+  ): Promise<OpenAI.Beta.Threads.Run> {
     const toolOutputs: OpenAI.Beta.Threads.Runs.RunSubmitToolOutputsParams.ToolOutput[] =
       [];
 
@@ -173,7 +180,7 @@ export class Assistant<T extends ToolRegistry = ToolRegistry> {
    */
   private getLastMessage(
     messages: OpenAI.Beta.Threads.Messages.MessagesPage,
-    run: Run
+    run: OpenAI.Beta.Threads.Run
   ): string | undefined {
     const lastMessageForRun = messages.data
       .filter(
