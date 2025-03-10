@@ -1,25 +1,27 @@
 import { type IntrospectionQuery } from "graphql";
-import introspection from "../documents/schema.json";
 import chalk from "chalk";
-import { createInitMap, initializeApp } from "./initialize-app";
 import { CLI } from "./cli";
+import type { InitializationMap } from "./create-initialization-map";
+import { initializeApp } from "./initialize-app";
 
-const entrypoint = initializeApp(
-  introspection as unknown as IntrospectionQuery,
-  "",
-  createInitMap()
-);
+export const initializeCLIApp = (
+  introspection: IntrospectionQuery,
+  businessContext: string = "",
+  initMap?: InitializationMap
+) => {
+  const entrypoint = initializeApp(introspection, businessContext, initMap);
 
-// --- CLI Prompt Loop ---
-const cli = new CLI();
-const mainLoop = async (response: string) => {
-  const ent = await entrypoint;
-  const res = await ent?.message(response);
-  console.log(chalk.blue(res));
-  cli.prompt("", mainLoop);
+  // --- CLI Prompt Loop ---
+  const cli = new CLI();
+  const mainLoop = async (response: string) => {
+    const ent = await entrypoint;
+    const res = await ent?.message(response);
+    console.log(chalk.blue(res));
+    cli.prompt("", mainLoop);
+  };
+
+  cli.prompt(
+    chalk.blue("What would you like to know about your data?"),
+    mainLoop
+  );
 };
-
-cli.prompt(
-  chalk.blue("What would you like to know about your data?"),
-  mainLoop
-);

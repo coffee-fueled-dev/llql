@@ -19,67 +19,25 @@ import {
   chatObserverAssistantCreateParams,
   chatObserverAssistantToolConfig,
 } from "../assistants/chat-observer-assistant";
-import {
-  createOrRetrieveVectorStore,
-  type VectorStoreCreateOrRetrieveParams,
-} from "./openai";
-import merge from "lodash.merge";
+import { createOrRetrieveVectorStore } from "./openai";
 import { messageAssistantTool } from "../tools/message-assistant";
-
-export interface AssistantInitialization {
-  name: string;
-  id?: { assistant?: string; thread?: string };
-}
-
-export interface InitializationMap {
-  VECTOR_STORE: VectorStoreCreateOrRetrieveParams;
-  CHAT_OBSERVER_ASSISTANT: AssistantInitialization;
-  THOUGHT_PARTNER_ASSISTANT: AssistantInitialization;
-  QUERY_FORMATTER_ASSISTANT: AssistantInitialization;
-  MAIN_ASSISTANT: AssistantInitialization;
-  REQUEST_DATA_TOOL: { name: string };
-  VALIDATE_QUERY_TOOL: { name: string };
-  TRAVERSE_SCHEMA_AST_TOOL: { name: string };
-}
-
-export const createInitMap = <T extends Partial<InitializationMap>>(
-  initMap?: T
-) =>
-  merge(
-    {},
-    {
-      VECTOR_STORE: {},
-      CHAT_OBSERVER_ASSISTANT: {
-        name: "CHAT_OBSERVER_ASSISTANT",
-        id: { assistant: undefined, thread: undefined },
-      },
-      THOUGHT_PARTNER_ASSISTANT: {
-        name: "THOUGHT_PARTNER_ASSISTANT",
-        id: { assistant: undefined, thread: undefined },
-      },
-      QUERY_FORMATTER_ASSISTANT: {
-        name: "QUERY_FORMATTER_ASSISTANT",
-        id: { assistant: undefined, thread: undefined },
-      },
-      MAIN_ASSISTANT: {
-        name: "MAIN_ASSISTANT",
-        id: { assistant: undefined, thread: undefined },
-      },
-      REQUEST_DATA_TOOL: { name: "REQUEST_DATA_TOOL" },
-      VALIDATE_QUERY_TOOL: { name: "VALIDATE_QUERY_TOOL" },
-      TRAVERSE_SCHEMA_AST_TOOL: { name: "TRAVERSE_SCHEMA_AST_TOOL" },
-    },
-    initMap
-  );
+import {
+  createInitializationMap,
+  type InitializationMap,
+} from "./create-initialization-map";
 
 export async function initializeApp(
   introspection: IntrospectionQuery,
-  businessContext: string,
-  initMap: InitializationMap
+  businessContext: string = "",
+  initMap?: InitializationMap
 ) {
+  const mergedInitMap = createInitializationMap(initMap);
+
   console.log("Setting things up...");
 
-  const vectorStore = await createOrRetrieveVectorStore(initMap.VECTOR_STORE);
+  const vectorStore = await createOrRetrieveVectorStore(
+    mergedInitMap.VECTOR_STORE
+  );
 
   const { sdlContext, documentNode, schema } = await buildSDLContext(
     introspection,
@@ -92,37 +50,37 @@ export async function initializeApp(
 
   // --- Build Message Assistant Tools ---
   const chatObserverAssistantTool = registerToolWithName(
-    initMap.CHAT_OBSERVER_ASSISTANT.name,
+    mergedInitMap.CHAT_OBSERVER_ASSISTANT.name,
     (n) => messageAssistantTool(n, chatObserverAssistantToolConfig, registry)
   );
   const thoughtPartnerAssistantTool = registerToolWithName(
-    initMap.THOUGHT_PARTNER_ASSISTANT.name,
+    mergedInitMap.THOUGHT_PARTNER_ASSISTANT.name,
     (n) => messageAssistantTool(n, thoughtPartnerAssistantToolConfig, registry)
   );
   const formatQueryAssistantTool = registerToolWithName(
-    initMap.QUERY_FORMATTER_ASSISTANT.name,
+    mergedInitMap.QUERY_FORMATTER_ASSISTANT.name,
     (n) => messageAssistantTool(n, formatQueryAssistantToolConfig, registry)
   );
 
   // Other tools.
   const traverseSchema = registerToolWithName(
-    initMap.TRAVERSE_SCHEMA_AST_TOOL.name,
+    mergedInitMap.TRAVERSE_SCHEMA_AST_TOOL.name,
     astTraversalTool,
     documentNode
   );
   const requestData = registerToolWithName(
-    initMap.REQUEST_DATA_TOOL.name,
+    mergedInitMap.REQUEST_DATA_TOOL.name,
     requestDataTool
   );
   const validateQuery = registerToolWithName(
-    initMap.VALIDATE_QUERY_TOOL.name,
+    mergedInitMap.VALIDATE_QUERY_TOOL.name,
     queryValidationTool,
     schema
   );
 
   // --- Progress Handler ---
   const handleProgress = async (message: ProgressMessage) => {
-    const assistant = registry.get(initMap.CHAT_OBSERVER_ASSISTANT.name)!;
+    const assistant = registry.get(mergedInitMap.CHAT_OBSERVER_ASSISTANT.name)!;
     chatHistory.push(message);
     if (assistant.busy) return;
     const progress = await assistant.message(
@@ -139,13 +97,13 @@ export async function initializeApp(
   // --- Register Assistants ---
   await registerAssistant(
     registry,
-    initMap.CHAT_OBSERVER_ASSISTANT.name,
+    mergedInitMap.CHAT_OBSERVER_ASSISTANT.name,
     chatObserverAssistantCreateParams()
   );
 
   await registerAssistant(
     registry,
-    initMap.MAIN_ASSISTANT.name,
+    mergedInitMap.MAIN_ASSISTANT.name,
     routerAssistantCreateParams(
       mergeTools(
         formatQueryAssistantTool,
@@ -163,7 +121,7 @@ export async function initializeApp(
 
   await registerAssistant(
     registry,
-    initMap.QUERY_FORMATTER_ASSISTANT.name,
+    mergedInitMap.QUERY_FORMATTER_ASSISTANT.name,
     formatQueryAssistantCreateParams(
       mergeTools(
         thoughtPartnerAssistantTool,
@@ -179,7 +137,7 @@ export async function initializeApp(
 
   await registerAssistant(
     registry,
-    initMap.THOUGHT_PARTNER_ASSISTANT.name,
+    mergedInitMap.THOUGHT_PARTNER_ASSISTANT.name,
     thoughtPartnerAssistantCreateParams(
       mergeTools(validateQuery, traverseSchema, chatObserverAssistantTool),
       sdlContext,
@@ -188,5 +146,5 @@ export async function initializeApp(
     handleProgress
   );
 
-  return registry.get(initMap.MAIN_ASSISTANT.name);
+  return registry.get(mergedInitMap.MAIN_ASSISTANT.name);
 }
